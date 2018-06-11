@@ -1,6 +1,6 @@
 #!/bin/bash
 
-remote=$(git rev-parse --abbrev-ref --symbolic-full-name @{u})
+remote=$(git for-each-ref --format='%(upstream:short)' $(git symbolic-ref -q HEAD))
 pruned=true
 
 ALL=false
@@ -28,35 +28,36 @@ elif [[ $FETCH = true ]]; then
 fi
 
 print_status () {
-    git branch -u $1 --quiet
+    ahead=$(git rev-list "HEAD..$1" --count)
+    behind=$(git rev-list "$1..HEAD" --count)
 
-    status=$(git status -sb -u no)
-    name=$(echo $status | sed 's/^[^\.]*\.\.\.//;s/\s\[.*$//')
-    ahead=$(echo $status | sed -r 's/^.*ahead//;s/(,.*)|].*$//')
-    behind=$(echo $status | sed 's/^.*behind//;s/].*$//')
-
-    printf "\e[39m%-27s" $name
+    printf "\e[39m%-27s" $1
     
-    if [[ ${#status} -gt $((${#ahead} + 2)) ]]; then
+    if [[ $ahead -gt 0 ]]; then
         printf "\e[32m%4d ahead\e[39   " $ahead
     else
-        if [[ ${#status} -le $((${#behind} + 2)) ]]; then
+        if [[ $behind -eq 0 ]]; then
             printf "\e[94m       Up to date\e[39"
         else
             printf "\e[39m          \e[39"
         fi
     fi
 
-    if [[ ${#status} -gt $((${#behind} + 2)) ]]; then
+    if [[ $behind -gt 0 ]]; then
         printf "\e[31m%4d behind\e[39" $behind
     fi
 
     echo
 }
 
-print_status origin/master
+if [[ $(git rev-parse --quiet --verify origin/master | awk '{print length}') -ne 0 ]]; then
+    print_status origin/master
+fi
 
-if [[ $BRANCH != 'origin/master' ]]; then
+if [[ $(git rev-parse --quiet --verify $BRANCH | awk '{print length}') -eq 0 ]]; then
+    printf "\e[31mNo remote tracking branch\e[39" ""
+    echo
+elif [[ $BRANCH != 'origin/master' ]]; then
     print_status $BRANCH
 fi
 
@@ -66,21 +67,7 @@ do
     if [[ $ALL = true && $branch != origin/master && $branch != origin/HEAD && $branch != '->' && $branch != $BRANCH ]]; then
         print_status $branch
     fi
-
-    if [[ $branch = $remote ]]; then
-        pruned=false
-    fi
 done
 
-
 echo
-
-if [[ $pruned = true && $remote != $(git rev-parse --abbrev-ref --symbolic-full-name @{u}) ]]; then
-    echo -e "\e[31mRemote tracking branch $remote no longer exists. Will track master now.\e[39m"
-    echo
-    git branch -u origin/master
-else
-    git branch -u $remote --quiet
-fi
-
 git status -s
