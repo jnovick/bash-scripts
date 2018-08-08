@@ -28,8 +28,8 @@ elif [[ $FETCH = true ]]; then
 fi
 
 print_status () {
-    ahead=$(git rev-list "HEAD..$1" --count)
-    behind=$(git rev-list "$1..HEAD" --count)
+    ahead=$(git rev-list "$1..HEAD" --count)
+    behind=$(git rev-list "HEAD..$1" --count)
 
     printf "\e[39m%-27s" $1
     
